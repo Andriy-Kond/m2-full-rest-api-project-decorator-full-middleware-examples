@@ -1,22 +1,7 @@
-import Joi from "joi";
 import { contactsHandler } from "../models/contactsHandler.js";
 import { HttpError } from "../utils/HttpError.js";
 import { tryCatchDecorator } from "../utils/tryCatchDecorator.js";
-
-const schema = Joi.object({
-  name: Joi.string()
-    // .pattern(new RegExp("^[a-zA-Z0-9-_]{3,30}$"))
-    .alphanum()
-    .min(3)
-    .max(30)
-    .required(),
-  email: Joi.string()
-    .email({
-      minDomainSegments: 2,
-    })
-    .required(),
-  phone: Joi.alternatives().try(Joi.string(), Joi.number()).required(),
-});
+import { contactsShema } from "../schemas/contactsShema.js";
 
 const getContacts = async (req, res, next) => {
   const contacts = await contactsHandler.getContacts();
@@ -40,8 +25,8 @@ const getContactById = async (req, res, next) => {
   res.json(contact);
 };
 
-const addContact = async (req, res, next) => {
-  const obj = schema.validate(req.body);
+const addContact_v1 = async (req, res, next) => {
+  const obj = contactsShema.validate(req.body);
 
   // if (error) throw error;
   if (obj.error) {
@@ -69,16 +54,42 @@ const addContact = async (req, res, next) => {
   res.status(201).json(newContact); // successfully add new entry
 };
 
-const editContact = async (req, res, next) => {
+const editContact_v1 = async (req, res, next) => {
   const { id } = req.params;
   const updContact = req.body;
 
-  const { error } = schema.validate(updContact);
+  const { error } = contactsShema.validate(updContact);
   if (error) throw HttpError({ status: 400, message: error });
 
   const editedContact = await contactsHandler.editContact({
     id,
     ...updContact,
+  });
+
+  if (!editedContact) throw HttpError({ status: 404, message: "Not found" });
+
+  res.json(editedContact);
+};
+
+const addContact = async (req, res, next) => {
+  // # remove shema validation to routes
+  // const { error } = contactsShema.validate(req.body);
+  // if (error) throw HttpError({ status: 400, message: error });
+
+  const newContact = await contactsHandler.addContact(req.body);
+  res.status(201).json(newContact);
+};
+
+const editContact = async (req, res, next) => {
+  const { id } = req.params;
+
+  // # remove shema validation to routes
+  // const { error } = contactsShema.validate(req.body);
+  // if (error) throw HttpError({ status: 400, message: error });
+
+  const editedContact = await contactsHandler.editContact({
+    id,
+    ...req.body,
   });
 
   if (!editedContact) throw HttpError({ status: 404, message: "Not found" });
